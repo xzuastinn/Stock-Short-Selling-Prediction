@@ -1,0 +1,2 @@
+data/stock_with_features.csv filter=lfs diff=lfs merge=lfs -text
+data/stock_details_5_years.csv filter=lfs diff=lfs merge=lfs -text
