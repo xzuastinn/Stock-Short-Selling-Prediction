@@ -4,9 +4,6 @@ venv/
 # Ignore model files
 models/*.pkl
 
-# Ignore dataset files
-data/*.csv
-
 # Ignore __pycache__ directories
 __pycache__/
 
