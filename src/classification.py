@@ -16,45 +16,63 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
 
-def train_pytorch_dnn(X_train, y_train, epochs=10, batch_size=32):
+def train_dnn(X_train, y_train, epochs=10, batch_size=32):
     """
-    Trains a simple PyTorch DNN for binary classification.
+    Trains a PyTorch DNN for binary classification with class imbalance handling.
     Returns the trained model.
     """
     # Convert NumPy arrays to PyTorch tensors
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
     y_train_t = torch.tensor(y_train.reshape(-1, 1), dtype=torch.float32)
 
+    # Compute class imbalance weight
+    num_negatives = np.sum(y_train == 0)
+    num_positives = np.sum(y_train == 1)
+    pos_weight_value = num_negatives / num_positives if num_positives > 0 else 1.0
+    pos_weight_tensor = torch.tensor([pos_weight_value], dtype=torch.float32)
+
     # Create a PyTorch Dataset & DataLoader
     dataset = TensorDataset(X_train_t, y_train_t)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    # Define a simple feedforward network
+    # Define the neural network
     model = nn.Sequential(
-        nn.Linear(X_train.shape[1], 64),
-        nn.ReLU(),
-        nn.Linear(64, 32),
-        nn.ReLU(),
-        nn.Linear(32, 1),
-        nn.Sigmoid()
-    )
+    nn.Linear(X_train.shape[1], 128),  # Increase neurons
+    nn.ReLU(),
+    nn.Linear(128, 64),
+    nn.ReLU(),
+    nn.Linear(64, 32),
+    nn.ReLU(),
+    nn.Linear(32, 1),
+    nn.Sigmoid()
+)
 
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # Use weighted BCELoss to handle class imbalance
+    criterion = nn.BCELoss(weight=pos_weight_tensor)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+
+    # Learning rate scheduler for stability
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
 
     # Training loop
     for epoch in range(epochs):
+        epoch_loss = 0.0
         for batch_x, batch_y in dataloader:
             optimizer.zero_grad()
             outputs = model(batch_x)
             loss = criterion(outputs, batch_y)
             loss.backward()
             optimizer.step()
+            epoch_loss += loss.item()
 
-        # (Optional) Print epoch loss:
-        # print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+        scheduler.step()  # Adjust learning rate
+
+        # Print epoch loss every few epochs
+        if (epoch + 1) % 2 == 0 or epoch == 0:
+            print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss / len(dataloader):.4f}")
 
     return model
+
 
 
 def prepare_classification_data(df):
@@ -98,7 +116,7 @@ def train_classification_models(X_train, y_train):
     svm_classifier.fit(X_train, y_train)
 
     # PyTorch DNN
-    pytorch_dnn = train_pytorch_dnn(X_train, y_train, epochs=10, batch_size=32)
+    pytorch_dnn = train_dnn(X_train, y_train, epochs=10, batch_size=32)
 
     # Return all three in a dict
     return {

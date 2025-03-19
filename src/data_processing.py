@@ -35,7 +35,7 @@ def load_and_clean_data(file_path: str) -> pd.DataFrame:
 
 def main():
     """ Main function to load and display cleaned stock data. """
-    file_path = "../stock_details_5_years.csv"
+    file_path = "data/stock_details_5_years.csv"
 
 
     try:
