@@ -1,0 +1,14 @@
+# Ignore Python virtual environments
+venv/
+
+# Ignore model files
+models/*.pkl
+
+# Ignore dataset files
+data/*.csv
+
+# Ignore __pycache__ directories
+__pycache__/
+
+# Ignore VS Code workspace settings (optional)
+.vscode/
