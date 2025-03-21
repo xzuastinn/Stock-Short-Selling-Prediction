@@ -7,6 +7,10 @@ models/*.pkl
 # Ignore dataset files
 data/*.csv
 
+# keep data folder
+!data/.gitkeep
+
+
 # Ignore __pycache__ directories
 __pycache__/
 
