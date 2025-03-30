@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 
 def load_and_clean_data(file_path: str) -> pd.DataFrame:
     """
@@ -35,7 +36,7 @@ def load_and_clean_data(file_path: str) -> pd.DataFrame:
 
 def main():
     """ Main function to load and display cleaned stock data. """
-    file_path = "data/stock_details_5_years.csv"
+    file_path = os.path.join("data", "stock_details_5_years.csv")
 
 
     try:

@@ -55,8 +55,13 @@ def engineer_features(df):
 
 def main():
     """Main function to load, process, and save the dataset with new features."""
+<<<<<<< HEAD
     file_path = "data/stock_details_5_years.csv"  # Adjust path if needed
     output_path = "data/stock_with_features.csv"
+=======
+    file_path = os.path.join("data", "stock_details_5_years.csv") 
+    output_path = os.path.join("data", "stock_with_features.csv")
+>>>>>>> 923491e050845a2ae483c591c4395447c5d6df0f
 
     # Ensure the output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

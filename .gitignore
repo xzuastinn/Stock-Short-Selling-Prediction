@@ -4,6 +4,7 @@ venv/
 # Ignore model files
 models/*.pkl
 
+<<<<<<< HEAD
 # Ignore dataset files
 data/*.csv
 
@@ -11,8 +12,14 @@ data/*.csv
 !data/.gitkeep
 
 
+=======
+>>>>>>> 923491e050845a2ae483c591c4395447c5d6df0f
 # Ignore __pycache__ directories
 __pycache__/
 
 # Ignore VS Code workspace settings (optional)
 .vscode/
+
+data/stock_details_5_years.csv
+data/stock_with_features.csv
+stock_details_5_years.csv.zip

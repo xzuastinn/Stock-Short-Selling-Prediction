@@ -11,6 +11,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
+device = torch.device("cpu")
+
+
 def prepare_regression_data(df):
     """
     Prepares data for regression models
@@ -35,13 +38,13 @@ def prepare_regression_data(df):
 
 
 
-def train_regression_dnn(X_train, y_train, epochs=10, batch_size=32):
+def train_regression_dnn(X_train, y_train, epochs=1000, batch_size=32):
     """
     Trains a PyTorch DNN for regression.
     Returns the trained model.
     """
-    X_train_t = torch.tensor(X_train, dtype=torch.float32)
-    y_train_t = torch.tensor(y_train.reshape(-1, 1), dtype=torch.float32)
+    X_train_t = torch.tensor(X_train, dtype=torch.float32).to(device)
+    y_train_t = torch.tensor(y_train.reshape(-1, 1), dtype=torch.float32).to(device)
 
     dataset = TensorDataset(X_train_t, y_train_t)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -55,6 +58,8 @@ def train_regression_dnn(X_train, y_train, epochs=10, batch_size=32):
         nn.ReLU(),
         nn.Linear(32, 1)
     )
+    
+    model = model.to(device)
 
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -64,7 +69,7 @@ def train_regression_dnn(X_train, y_train, epochs=10, batch_size=32):
         for batch_x, batch_y in dataloader:
             optimizer.zero_grad()
             output = model(batch_x)
-            loss = criterion(output, batch_y)
+            loss = criterion(output, batch_y.to(device))
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
@@ -77,7 +82,7 @@ def train_regression_dnn(X_train, y_train, epochs=10, batch_size=32):
 
 def evaluate_regression_dnn(model, X_test, y_test):
     model.eval()
-    X_test_t = torch.tensor(X_test, dtype=torch.float32)
+    X_test_t = torch.tensor(X_test, dtype=torch.float32).to(device)
     
     with torch.no_grad():
         y_pred = model(X_test_t).numpy().flatten()
@@ -109,13 +114,13 @@ def main():
     X_train, X_test, y_train, y_test, scaler = prepare_regression_data(df)
 
     print("Training regression...")
-    model = train_regression_dnn(X_train, y_train, epochs=20, batch_size=32)
+    model = train_regression_dnn(X_train, y_train, epochs=1000, batch_size=32)
 
     print("Evaluating regression...")
     results = evaluate_regression_dnn(model, X_test, y_test)
 
-    print("Saving regression model...")
-    save_regression_model(model)
+    # print("Saving regression model...")
+    # save_regression_model(model)
 
     print("Regression complete.")
 
