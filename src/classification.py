@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
@@ -92,9 +92,24 @@ def prepare_classification_data(df):
     X_scaled = scaler.fit_transform(X)
     
     # Time-based Train-Test Split (first half train, second half test)
+    # split_index = int(len(df) * 0.5)
+    # X_train, X_test = X_scaled[:split_index], X_scaled[split_index:]
+    # y_train, y_test = y[:split_index], y[split_index:]
+
+    # Time-based Train-Test Split (first half train, second half test)
     split_index = int(len(df) * 0.5)
     X_train, X_test = X_scaled[:split_index], X_scaled[split_index:]
     y_train, y_test = y[:split_index], y[split_index:]
+
+    # tss = TimeSeriesSplit(n_splits=20)
+    # for train_index, test_index in tss.split(df):
+    #     split_point = len(train_index)
+    #     test_size = len(test_index)
+    #     X_train = df[:split_point]
+    #     X_test = df[split_point:split_point + test_size]
+
+    #     y_train = df[:split_point].values.ravel()
+    #     y_test = df[split_point:split_point + test_size].values.ravel()
     
     return X_train, X_test, y_train, y_test, scaler
 
