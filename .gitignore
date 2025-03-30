@@ -9,3 +9,7 @@ __pycache__/
 
 # Ignore VS Code workspace settings (optional)
 .vscode/
+
+data/stock_details_5_years.csv
+data/stock_with_features.csv
+stock_details_5_years.csv.zip
