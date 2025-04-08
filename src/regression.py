@@ -58,6 +58,7 @@ def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=64):
     dataset = TensorDataset(X_tensor, y_tensor)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
+    #OLD MODEL 
     # model = nn.Sequential(
     # nn.Linear(X_train.shape[1], 256),
     # nn.ReLU(),
@@ -69,7 +70,8 @@ def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=64):
     # nn.ReLU(),
     # nn.Linear(32, 1)
     # ) 
-# TRY ME:
+
+    #NEW MODEL 
     model = nn.Sequential(
     nn.Linear(X_train.shape[1], 256),
     nn.BatchNorm1d(256),
