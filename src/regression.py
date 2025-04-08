@@ -58,21 +58,42 @@ def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=64):
     dataset = TensorDataset(X_tensor, y_tensor)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
+    # model = nn.Sequential(
+    # nn.Linear(X_train.shape[1], 256),
+    # nn.ReLU(),
+    # nn.Linear(256, 128),
+    # nn.ReLU(),
+    # nn.Linear(128, 64),
+    # nn.ReLU(),
+    # nn.Linear(64, 32),
+    # nn.ReLU(),
+    # nn.Linear(32, 1)
+    # ) 
+# TRY ME:
     model = nn.Sequential(
     nn.Linear(X_train.shape[1], 256),
+    nn.BatchNorm1d(256),
     nn.ReLU(),
+
     nn.Linear(256, 128),
+    nn.BatchNorm1d(128),
     nn.ReLU(),
+
     nn.Linear(128, 64),
+    nn.BatchNorm1d(64),
     nn.ReLU(),
+
     nn.Linear(64, 32),
+    nn.BatchNorm1d(32),
     nn.ReLU(),
+
     nn.Linear(32, 1)
-    ) #CONTROL Z THIS AWAY
+)
+
 
     criterion = nn.HuberLoss(delta=2.0) #changed delta from 1 hoping to reduce senstivity to noise..
-    optimizer = optim.Adam(model.parameters(), lr=0.005) 
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
+    optimizer = optim.RMSprop(model.parameters(), lr=0.005, alpha=0.9) #Changed from ADAM
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9) #commented out for RMSprop above 
 
     for epoch in range(epochs):
         epoch_loss = 0.0
@@ -84,9 +105,9 @@ def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=64):
             optimizer.step()
             epoch_loss += loss.item()
 
-        scheduler.step()
+        # scheduler.step()
         if (epoch + 1) % 10 == 0 or epoch == 0:
-            print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss / len(loader):.4f}")
+             print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss / len(loader):.4f}")
 
     return model
 
