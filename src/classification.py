@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from torch.utils.data import TensorDataset, DataLoader
 
 
-def train_dnn(X_train, y_train, epochs=100, batch_size=32):
+def train_dnn(X_train, y_train, epochs=100, batch_size=64):
     """
     Trains a PyTorch DNN for binary classification with class imbalance handling.
     Returns the trained model.
@@ -46,7 +46,7 @@ def train_dnn(X_train, y_train, epochs=100, batch_size=32):
 
     # Use weighted BCELoss to handle class imbalance
     criterion = nn.BCELoss(weight=pos_weight_tensor)
-    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    optimizer = optim.Adam(model.parameters(), lr=0.001) #this was at .005 and performing ok..
 
     # Learning rate scheduler for stability
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
@@ -76,7 +76,7 @@ def prepare_classification_data(df):
     """Prepares data for classification models."""
     
     # Define classification target: Will the stock drop by ≥5% in 5 days?
-    df["Short_Label"] = (df["Close"].shift(-10) < df["Close"] * 0.95).astype(int)
+    df["Short_Label"] = (df["Close"].shift(-3) < df["Close"] * 0.95).astype(int)
     df = df.dropna()  # Drop NaN values caused by shifting
     
     # Select features
@@ -118,7 +118,7 @@ def train_classification_models(X_train, y_train):
     rf_classifier.fit(X_train, y_train)
 
     # PyTorch DNN
-    pytorch_dnn = train_dnn(X_train, y_train, epochs=100, batch_size=32)
+    pytorch_dnn = train_dnn(X_train, y_train, epochs=100, batch_size=64)
 
     return {
         "LogisticRegression": log_reg,
@@ -142,7 +142,7 @@ def evaluate_classification(models, X_test, y_test):
             model.eval()
             with torch.no_grad():
                 outputs = model(X_test_torch).numpy()  # shape: (n_samples, 1)
-            threshold = 0.6 
+            threshold = 0.4 ## CHANGED FROM .6 4/5/26 
             y_pred = (outputs > threshold).astype(int).flatten()
         else:
             # scikit-learn prediction
@@ -214,7 +214,7 @@ def main():
     # Reload the original dataframe and get the second half (used as test set)
     test_df = df.iloc[int(len(df) * 0.5):].reset_index(drop=True)
 
-    best_model_name = max(results, key=lambda x: results[x]["Precision"])
+    best_model_name = max(results, key=lambda x: results[x]["Precision"]) #################### changed from precision
     best_model = models[best_model_name]
 
     # Get features again from test_df
@@ -244,7 +244,7 @@ def main():
     print(f"Predicted drops found: {len(predicted_drops)}")
     print(predicted_drops[["Date", "Company", "Close"]])  # print sample
 
-
+    predicted_drops.to_csv("data/predicted_drops.csv", index=False)
 
 if __name__ == "__main__":
     main()

@@ -10,41 +10,48 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
-
 def prepare_regression_data(df):
-    """Prepares data for regression models."""
-    
-    # Define future percentage drop over the next 10 trading days
-    df["Future_Drop%"] = ((df["Close"] - df["Close"].shift(-10)) / df["Close"]) * 100
-
-    # Create Short_Label to match classification logic (drop ≥5%)
+    """Prepares training data for regression models using actual historical drops in first half."""
+    df["Future_Drop%"] = ((df["Close"] - df["Close"].shift(-3)) / df["Close"]) * 100
     df["Short_Label"] = (df["Future_Drop%"] >= 5).astype(int)
+    df = df.dropna()
 
-    # Keep only rows where we expect a drop (Short_Label = 1)
-    df = df[df["Short_Label"] == 1].dropna()
+    # Keep only first half of data
+    split_index = int(len(df) * 0.5)
+    df_train = df.iloc[:split_index]
 
-    # Select features
-    feature_cols = [col for col in df.columns if col not in ["Date", "Company", "Close", "Short_Label", "Future_Drop%"]]
-    X = df[feature_cols].values
-    y = df["Future_Drop%"].values
+    # Filter only real drops uncomment to change
+    #df_train = df_train[df_train["Short_Label"] == 1]
 
-    # Normalize features
+    feature_cols = [col for col in df_train.columns if col not in ["Date", "Company", "Close", "Short_Label", "Future_Drop%", 
+                                                                   "Drawdown_%", "Volume_Spike_10", "Price_to_SMA_50", 
+                                                                   "Volatility_Ratio"]]
+    X = df_train[feature_cols].values
+    y = df_train["Future_Drop%"].values
+
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Train-test split (time-based)
-    split_index = int(len(df) * 0.5)
-    X_train, X_test = X_scaled[:split_index], X_scaled[split_index:]
-    y_train, y_test = y[:split_index], y[split_index:]
+    return X_scaled, y, df, scaler
 
-    return X_train, X_test, y_train, y_test, scaler
+def prepare_test_data(df, predicted_drops, scaler):
+    """Prepares test data based on classifier-predicted drops."""
+    df["Future_Drop%"] = ((df["Close"] - df["Close"].shift(-3)) / df["Close"]) * 100
+    df["Short_Label"] = (df["Future_Drop%"] >= 5).astype(int)
+    df = df.dropna()
 
+    df_test = df.merge(predicted_drops[["Date", "Company"]], on=["Date", "Company"], how="inner")
 
+    feature_cols = [col for col in df_test.columns if col not in ["Date", "Company", "Close", 
+                                                                  "Short_Label", "Future_Drop%",
+                                                                    "Drawdown_%", "Volume_Spike_10", 
+                                                                    "Price_to_SMA_50", "Volatility_Ratio"]]
+    X_test = scaler.transform(df_test[feature_cols])
+    y_test = df_test["Future_Drop%"].values
 
-def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=32):
-    """
-    Trains a PyTorch DNN regressor.
-    """
+    return X_test, y_test
+
+def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=64):
     X_tensor = torch.tensor(X_train, dtype=torch.float32)
     y_tensor = torch.tensor(y_train.reshape(-1, 1), dtype=torch.float32)
 
@@ -52,17 +59,19 @@ def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=32):
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = nn.Sequential(
-        nn.Linear(X_train.shape[1], 128),
-        nn.ReLU(),
-        nn.Linear(128, 64),
-        nn.ReLU(),
-        nn.Linear(64, 32),
-        nn.ReLU(),
-        nn.Linear(32, 1)
-    )
+    nn.Linear(X_train.shape[1], 256),
+    nn.ReLU(),
+    nn.Linear(256, 128),
+    nn.ReLU(),
+    nn.Linear(128, 64),
+    nn.ReLU(),
+    nn.Linear(64, 32),
+    nn.ReLU(),
+    nn.Linear(32, 1)
+    ) #CONTROL Z THIS AWAY
 
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    criterion = nn.HuberLoss(delta=2.0) #changed delta from 1 hoping to reduce senstivity to noise..
+    optimizer = optim.Adam(model.parameters(), lr=0.005) 
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
 
     for epoch in range(epochs):
@@ -81,11 +90,7 @@ def train_dnn_regressor(X_train, y_train, epochs=100, batch_size=32):
 
     return model
 
-
 def train_regression_models(X_train, y_train):
-    """
-    Trains regression models.
-    """
     lr = LinearRegression()
     lr.fit(X_train, y_train)
 
@@ -100,11 +105,7 @@ def train_regression_models(X_train, y_train):
         "PyTorchDNN": dnn
     }
 
-
 def evaluate_regression(models, X_test, y_test):
-    """
-    Evaluates regression models.
-    """
     results = {}
     X_test_torch = torch.tensor(X_test, dtype=torch.float32)
 
@@ -131,24 +132,42 @@ def evaluate_regression(models, X_test, y_test):
         print(f"MSE: {mse:.4f}")
         print(f"R²: {r2:.4f}")
 
+        # Bin predictions
+        bins = [0, 1, 3, 5, 7, 9, float("inf")]
+        labels = ["<1%", "1–3%", "3–5%", "5–7%", "7–9%", "≥9%"]
+        bin_indices = np.digitize(preds, bins)
+
+        print("\nAverage actual drop (y_test) for each predicted bin:")
+        for i, label in enumerate(labels, 1):
+            actual_drops = y_test[bin_indices == i]
+            actual_drops = actual_drops[actual_drops < 0]  # Only include actual drops CAN COMMENT OUT FOR ALL
+            if len(actual_drops) > 0:
+                avg_drop = -np.mean(actual_drops)  # Convert to positive for reporting
+                print(f"  {label}: {avg_drop:.2f} (n = {len(actual_drops)})")
+            else:
+                print(f"  {label}: No actual drops in this bin")
+
     return results
 
-
 def main():
+    predicted_drops = pd.read_csv("data/predicted_drops.csv")
+
     print("Loading data...")
     df = pd.read_csv("data/stock_with_features.csv")
 
-    print("Preparing regression dataset...")
-    X_train, X_test, y_train, y_test, _ = prepare_regression_data(df)
+    print("Preparing training dataset...")
+    X_train, y_train, df_full, scaler = prepare_regression_data(df)
 
     print("Training regression models...")
     models = train_regression_models(X_train, y_train)
+
+    print("Preparing test dataset from classifier predictions...")
+    X_test, y_test = prepare_test_data(df, predicted_drops, scaler)
 
     print("Evaluating regression models...")
     results = evaluate_regression(models, X_test, y_test)
 
     print("\nRegression task complete!")
-
 
 if __name__ == "__main__":
     main()

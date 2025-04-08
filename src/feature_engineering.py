@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 from data_processing import load_and_clean_data
 
 
@@ -43,6 +44,66 @@ def calculate_volatility(df, window=10):
     df[f'Volatility_{window}'] = df.groupby("Company")['Close'].transform(lambda x: x.pct_change().rolling(window=window).std())
     return df
 
+def calculate_rate_of_change(df, window=10):
+    """Calculates Rate of Change (ROC)"""
+    df[f'ROC_{window}'] = df.groupby("Company")["Close"].transform(lambda x: x.pct_change(periods=window) * 100)
+    return df
+
+def calculate_atr(df, window=14):
+    """Calculates Average True Range (ATR)"""
+    df['High_Low'] = df['High'] - df['Low']
+    df['High_Close'] = np.abs(df['High'] - df['Close'].shift(1))
+    df['Low_Close'] = np.abs(df['Low'] - df['Close'].shift(1))
+    df['TR'] = df[['High_Low', 'High_Close', 'Low_Close']].max(axis=1)
+    df[f'ATR_{window}'] = df.groupby("Company")["TR"].transform(lambda x: x.rolling(window=window).mean())
+    df.drop(columns=['High_Low', 'High_Close', 'Low_Close', 'TR'], inplace=True)
+    return df
+
+def calculate_obv(df):
+    """Calculates On-Balance Volume (OBV)"""
+    obv = []
+    for company, group in df.groupby("Company"):
+        group = group.sort_values("Date")
+        obv_series = [0]
+        for i in range(1, len(group)):
+            if group["Close"].iloc[i] > group["Close"].iloc[i - 1]:
+                obv_series.append(obv_series[-1] + group["Volume"].iloc[i])
+            elif group["Close"].iloc[i] < group["Close"].iloc[i - 1]:
+                obv_series.append(obv_series[-1] - group["Volume"].iloc[i])
+            else:
+                obv_series.append(obv_series[-1])
+        df.loc[group.index, "OBV"] = obv_series
+    return df
+
+def add_lag_features(df, lags=[1, 3, 5]):
+    for lag in lags:
+        df[f'Lag_Close_Change_{lag}'] = df.groupby("Company")["Close"].pct_change(periods=lag) * 100
+    return df
+
+def calculate_drawdown(df):
+    """Calculates rolling drawdown from the peak for each stock"""
+    df['Rolling_Max'] = df.groupby("Company")['Close'].transform(lambda x: x.cummax())
+    df['Drawdown_%'] = (df['Close'] - df['Rolling_Max']) / df['Rolling_Max'] * 100
+    df.drop(columns=['Rolling_Max'], inplace=True)
+    return df
+
+def calculate_volume_spike(df, window=10):
+    df[f'Volume_Spike_{window}'] = df.groupby("Company")["Volume"].transform(
+        lambda x: x / x.rolling(window).mean()
+    )
+    return df
+
+def calculate_price_ma_ratio(df, window=50):
+    sma = df.groupby("Company")["Close"].transform(lambda x: x.rolling(window).mean())
+    df[f'Price_to_SMA_{window}'] = df["Close"] / sma
+    return df
+
+def calculate_volatility_ratio(df, short_window=5, long_window=20):
+    short_vol = df.groupby("Company")['Close'].transform(lambda x: x.pct_change().rolling(short_window).std())
+    long_vol = df.groupby("Company")['Close'].transform(lambda x: x.pct_change().rolling(long_window).std())
+    df['Volatility_Ratio'] = short_vol / long_vol
+    return df
+
 def engineer_features(df):
     """Applies all feature engineering functions to dataset."""
     df = calculate_sma(df)
@@ -51,7 +112,14 @@ def engineer_features(df):
     df = calculate_bollinger_bands(df)
     df = calculate_macd(df)
     df = calculate_volatility(df)
+    df = calculate_obv(df)               
+    df = add_lag_features(df, lags=[1, 3, 5])
+    df = calculate_drawdown(df)
+    df = calculate_volume_spike(df)
+    df = calculate_price_ma_ratio(df)
+    df = calculate_volatility_ratio(df)
     return df
+
 
 def main():
     """Main function to load, process, and save the dataset with new features."""
